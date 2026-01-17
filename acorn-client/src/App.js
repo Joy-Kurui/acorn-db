@@ -153,7 +153,9 @@ export default function PaymentRDBMSApp() {
       if (replInput.toUpperCase().includes('INSERT') || 
           replInput.toUpperCase().includes('UPDATE') || 
           replInput.toUpperCase().includes('DELETE')) {
+       setTimeout(async () => {
         await refreshData();
+      }, 100);
       }
     } catch (error) {
       setReplHistory(prev => [...prev, { input: replInput, output: error.message, error: true }]);
