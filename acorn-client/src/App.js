@@ -25,6 +25,16 @@ export default function PaymentRDBMSApp() {
   });
 
   useEffect(() => {
+  console.log('👥 Customers state updated:', customers);
+  console.log('👥 Number of customers:', customers.length);
+}, [customers]);
+
+useEffect(() => {
+  console.log('🏪 Merchants state updated:', merchants);
+  console.log('🏪 Number of merchants:', merchants.length);
+}, [merchants]);
+
+  useEffect(() => {
     initializeDatabase();
   }, []);
 
@@ -48,99 +58,108 @@ export default function PaymentRDBMSApp() {
     }
   };
 
-  const initializeDatabase = async () => {
-    try {
-      // Create schema
-      await executeSQL(`CREATE TABLE customers (
-        id INTEGER PRIMARY KEY,
-        email TEXT UNIQUE,
-        name TEXT,
-        phone TEXT,
-        balance DECIMAL,
-        created_at TEXT
-      )`);
-
-      await executeSQL(`CREATE TABLE merchants (
-        id INTEGER PRIMARY KEY,
-        business_name TEXT,
-        merchant_id TEXT UNIQUE,
-        category TEXT,
-        commission_rate DECIMAL,
-        created_at TEXT
-      )`);
-
-      await executeSQL(`CREATE TABLE transactions (
-        id INTEGER PRIMARY KEY,
-        transaction_id TEXT UNIQUE,
-        customer_id INTEGER,
-        merchant_id INTEGER,
-        amount DECIMAL,
-        currency TEXT,
-        payment_method TEXT,
-        status TEXT,
-        created_at TEXT
-      )`);
-
-      // Create indexes
-      await executeSQL('CREATE INDEX idx_customer_id ON transactions(customer_id)');
-      await executeSQL('CREATE INDEX idx_merchant_id ON transactions(merchant_id)');
-      await executeSQL('CREATE INDEX idx_status ON transactions(status)');
-
-      // Insert sample data
-      await executeSQL("INSERT INTO customers (email, name, phone, balance, created_at) VALUES ('alice@example.com', 'Alice Johnson', '+1234567890', 5000.00, '2025-01-10')");
-      await executeSQL("INSERT INTO customers (email, name, phone, balance, created_at) VALUES ('bob@example.com', 'Bob Smith', '+1234567891', 3500.50, '2025-01-11')");
-      await executeSQL("INSERT INTO customers (email, name, phone, balance, created_at) VALUES ('charlie@example.com', 'Charlie Brown', '+1234567892', 7200.00, '2025-01-12')");
-
-      await executeSQL("INSERT INTO merchants (business_name, merchant_id, category, commission_rate, created_at) VALUES ('Coffee Shop Inc', 'MERCH_001', 'Food & Beverage', 2.5, '2025-01-01')");
-      await executeSQL("INSERT INTO merchants (business_name, merchant_id, category, commission_rate, created_at) VALUES ('Tech Store LLC', 'MERCH_002', 'Electronics', 3.0, '2025-01-02')");
-      await executeSQL("INSERT INTO merchants (business_name, merchant_id, category, commission_rate, created_at) VALUES ('BookWorld', 'MERCH_003', 'Books', 2.0, '2025-01-03')");
-
-      await executeSQL("INSERT INTO transactions (transaction_id, customer_id, merchant_id, amount, currency, payment_method, status, created_at) VALUES ('TXN_001', 1, 1, 45.50, 'USD', 'credit_card', 'completed', '2025-01-14 10:30:00')");
-      await executeSQL("INSERT INTO transactions (transaction_id, customer_id, merchant_id, amount, currency, payment_method, status, created_at) VALUES ('TXN_002', 2, 2, 1299.99, 'USD', 'debit_card', 'completed', '2025-01-14 11:15:00')");
-      await executeSQL("INSERT INTO transactions (transaction_id, customer_id, merchant_id, amount, currency, payment_method, status, created_at) VALUES ('TXN_003', 1, 3, 29.99, 'USD', 'credit_card', 'pending', '2025-01-15 09:20:00')");
-
+const initializeDatabase = async () => {
+  try {
+    // Check if tables already exist
+    const tablesResult = await executeSQL('SHOW TABLES');
+    
+    if (tablesResult.tables && tablesResult.tables.length > 0) {
+      console.log('✓ Tables already exist, skipping initialization');
+      console.log('Tables found:', tablesResult.tables);
+      
+      // Just refresh data from existing tables
       await refreshData();
-    } catch (error) {
-      console.error('Initialization error:', error);
+      return;
     }
-  };
+    
+    console.log('Creating new schema...');
+    
+    // Only create tables if they don't exist
+    await executeSQL("CREATE TABLE customers (id INTEGER PRIMARY KEY, email TEXT UNIQUE, name TEXT, phone TEXT, balance DECIMAL, created_at TEXT)");
+    
+    await executeSQL("CREATE TABLE merchants (id INTEGER PRIMARY KEY, business_name TEXT, merchant_id TEXT UNIQUE, category TEXT, commission_rate DECIMAL, created_at TEXT)");
+    
+    await executeSQL("CREATE TABLE transactions (id INTEGER PRIMARY KEY, transaction_id TEXT UNIQUE, customer_id INTEGER, merchant_id INTEGER, amount DECIMAL, currency TEXT, payment_method TEXT, status TEXT, created_at TEXT)");
 
-  const refreshData = async () => {
+    // Create indexes
+    await executeSQL('CREATE INDEX idx_customer_id ON transactions(customer_id)');
+    await executeSQL('CREATE INDEX idx_merchant_id ON transactions(merchant_id)');
+    await executeSQL('CREATE INDEX idx_status ON transactions(status)');
+
+    // Insert sample data
+    await executeSQL("INSERT INTO customers (email, name, phone, balance, created_at) VALUES ('alice@example.com', 'Alice Johnson', '+1234567890', 5000.00, '2025-01-10')");
+    await executeSQL("INSERT INTO customers (email, name, phone, balance, created_at) VALUES ('bob@example.com', 'Bob Smith', '+1234567891', 3500.50, '2025-01-11')");
+    await executeSQL("INSERT INTO customers (email, name, phone, balance, created_at) VALUES ('charlie@example.com', 'Charlie Brown', '+1234567892', 7200.00, '2025-01-12')");
+
+    await executeSQL("INSERT INTO merchants (business_name, merchant_id, category, commission_rate, created_at) VALUES ('Coffee Shop Inc', 'MERCH_001', 'Food & Beverage', 2.5, '2025-01-01')");
+    await executeSQL("INSERT INTO merchants (business_name, merchant_id, category, commission_rate, created_at) VALUES ('Tech Store LLC', 'MERCH_002', 'Electronics', 3.0, '2025-01-02')");
+    await executeSQL("INSERT INTO merchants (business_name, merchant_id, category, commission_rate, created_at) VALUES ('BookWorld', 'MERCH_003', 'Books', 2.0, '2025-01-03')");
+
+    await executeSQL("INSERT INTO transactions (transaction_id, customer_id, merchant_id, amount, currency, payment_method, status, created_at) VALUES ('TXN_001', 1, 1, 45.50, 'USD', 'credit_card', 'completed', '2025-01-14 10:30:00')");
+    await executeSQL("INSERT INTO transactions (transaction_id, customer_id, merchant_id, amount, currency, payment_method, status, created_at) VALUES ('TXN_002', 2, 2, 1299.99, 'USD', 'debit_card', 'completed', '2025-01-14 11:15:00')");
+    await executeSQL("INSERT INTO transactions (transaction_id, customer_id, merchant_id, amount, currency, payment_method, status, created_at) VALUES ('TXN_003', 1, 3, 29.99, 'USD', 'credit_card', 'pending', '2025-01-15 09:20:00')");
+
+    console.log('✓ Schema created and sample data inserted');
+    await refreshData();
+    
+  } catch (error) {
+    console.error('Initialization error:', error);
+    
+    // Even if initialization fails, try to refresh existing data
+    console.log('Attempting to refresh existing data...');
     try {
-      // Fetch transactions with JOIN
-      const txResult = await executeSQL(`
-        SELECT 
-          transactions.id,
-          transactions.transaction_id,
-          transactions.amount,
-          transactions.currency,
-          transactions.payment_method,
-          transactions.status,
-          transactions.created_at,
-          customers.name,
-          merchants.business_name
-        FROM transactions
-        JOIN customers ON transactions.customer_id = customers.id
-        JOIN merchants ON transactions.merchant_id = merchants.id
-      `);
-      setTransactions(txResult.rows || []);
-
-      // Fetch customers
-      const custResult = await executeSQL('SELECT * FROM customers');
-      setCustomers(custResult.rows || []);
-
-      // Fetch merchants
-      const merchResult = await executeSQL('SELECT * FROM merchants');
-      setMerchants(merchResult.rows || []);
-
-      // Fetch stats
-      const statsResponse = await fetch(`${API_BASE}/stats`);
-      const statsData = await statsResponse.json();
-      setStats(statsData);
-    } catch (error) {
-      console.error('Refresh error:', error);
+      await refreshData();
+    } catch (refreshError) {
+      console.error('Refresh also failed:', refreshError);
     }
-  };
+  }
+};
+
+const refreshData = async () => {
+  try {
+    console.log('🔄 Starting refreshData...');
+    
+    // Fetch customers
+    const custResult = await executeSQL('SELECT * FROM customers');
+    console.log('📊 Customers fetched:', custResult);
+    console.log('📊 Customers rows:', custResult.rows);
+    setCustomers(custResult.rows || []);
+
+    // Fetch merchants
+    const merchResult = await executeSQL('SELECT * FROM merchants');
+    console.log('📊 Merchants fetched:', merchResult);
+    setMerchants(merchResult.rows || []);
+
+    // Fetch transactions with JOIN
+    const txResult = await executeSQL(`
+      SELECT 
+        transactions.id,
+        transactions.transaction_id,
+        transactions.amount,
+        transactions.currency,
+        transactions.payment_method,
+        transactions.status,
+        transactions.created_at,
+        customers.name,
+        merchants.business_name
+      FROM transactions
+      JOIN customers ON transactions.customer_id = customers.id
+      JOIN merchants ON transactions.merchant_id = merchants.id
+    `);
+    console.log('📊 Transactions fetched:', txResult);
+    setTransactions(txResult.rows || []);
+
+    // Fetch stats
+    const statsResponse = await fetch(`${API_BASE}/stats`);
+    const statsData = await statsResponse.json();
+    console.log('📊 Stats fetched:', statsData);
+    setStats(statsData);
+    
+    console.log('✅ refreshData complete!');
+  } catch (error) {
+    console.error('❌ Refresh error:', error);
+  }
+};
 
   const executeREPL = async () => {
     if (!replInput.trim()) return;
