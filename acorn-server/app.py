@@ -434,18 +434,98 @@ class PaymentRDBMS:
             'inserted_id': row.get(table.primary_key)
         }
     
+    # def _select(self, sql):
+    #     """SELECT * FROM users WHERE email = 'john@example.com'"""
+    #     import re
+        
+    #     # Check for JOIN
+    #     join_match = re.match(
+    #         r"SELECT\s+(.*?)\s+FROM\s+(\w+)\s+JOIN\s+(\w+)\s+ON\s+([\w.]+)\s*=\s*([\w.]+)(?:\s+WHERE\s+(.*))?",
+    #         sql, re.IGNORECASE
+    #     )
+        
+    #     if join_match:
+    #         return self._select_join(join_match)
+        
+    #     # Simple SELECT
+    #     match = re.match(r"SELECT\s+(.*?)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.*))?", sql, re.IGNORECASE)
+    #     if not match:
+    #         raise ValueError("Invalid SELECT syntax")
+        
+    #     columns = match.group(1).strip()
+    #     table_name = match.group(2)
+    #     where_clause = match.group(3)
+        
+    #     table = self.tables.get(table_name)
+    #     if not table:
+    #         raise ValueError(f"Table {table_name} does not exist")
+        
+    #     rows = list(table.rows)
+        
+    #     # Apply WHERE clause
+    #     if where_clause:
+    #         rows = self._filter_rows(table, rows, where_clause)
+        
+    #     # Select columns
+    #     if columns == '*':
+    #         return {
+    #             'success': True,
+    #             'rows': rows,
+    #             'columns': [col['name'] for col in table.columns]
+    #         }
+    #     else:
+    #         select_cols = [col.strip() for col in columns.split(',')]
+    #         result = []
+    #         for row in rows:
+    #             new_row = {col: row.get(col) for col in select_cols}
+    #             result.append(new_row)
+    #         return {'success': True, 'rows': result, 'columns': select_cols}
+    
+    # def _select_join(self, match):
+    #     """Handle JOIN queries"""
+    #     columns = match.group(1).strip()
+    #     table1_name = match.group(2)
+    #     table2_name = match.group(3)
+    #     join_col1 = match.group(4)
+    #     join_col2 = match.group(5)
+        
+    #     table1 = self.tables.get(table1_name)
+    #     table2 = self.tables.get(table2_name)
+        
+    #     if not table1 or not table2:
+    #         raise ValueError("Table does not exist")
+        
+    #     # Parse join columns
+    #     col1 = join_col1.split('.')[-1]
+    #     col2 = join_col2.split('.')[-1]
+        
+    #     # Nested loop join
+    #     result = []
+    #     for row1 in table1.rows:
+    #         for row2 in table2.rows:
+    #             if row1.get(col1) == row2.get(col2):
+    #                 joined_row = {}
+    #                 for k, v in row1.items():
+    #                     joined_row[f"{table1_name}.{k}"] = v
+    #                 for k, v in row2.items():
+    #                     joined_row[f"{table2_name}.{k}"] = v
+    #                 result.append(joined_row)
+        
+    #     # Select columns
+    #     if columns == '*':
+    #         select_cols = list(result[0].keys()) if result else []
+    #     else:
+    #         select_cols = [col.strip() for col in columns.split(',')]
+    #         result = [{col: row.get(col) for col in select_cols} for row in result]
+        
+    #     return {'success': True, 'rows': result, 'columns': select_cols}
     def _select(self, sql):
         """SELECT * FROM users WHERE email = 'john@example.com'"""
         import re
         
-        # Check for JOIN
-        join_match = re.match(
-            r"SELECT\s+(.*?)\s+FROM\s+(\w+)\s+JOIN\s+(\w+)\s+ON\s+([\w.]+)\s*=\s*([\w.]+)(?:\s+WHERE\s+(.*))?",
-            sql, re.IGNORECASE
-        )
-        
-        if join_match:
-            return self._select_join(join_match)
+        # Check for JOIN (handle multiple JOINs)
+        if 'JOIN' in sql.upper():
+            return self._select_join_multiple(sql)
         
         # Simple SELECT
         match = re.match(r"SELECT\s+(.*?)\s+FROM\s+(\w+)(?:\s+WHERE\s+(.*))?", sql, re.IGNORECASE)
@@ -480,46 +560,98 @@ class PaymentRDBMS:
                 new_row = {col: row.get(col) for col in select_cols}
                 result.append(new_row)
             return {'success': True, 'rows': result, 'columns': select_cols}
-    
-    def _select_join(self, match):
-        """Handle JOIN queries"""
-        columns = match.group(1).strip()
-        table1_name = match.group(2)
-        table2_name = match.group(3)
-        join_col1 = match.group(4)
-        join_col2 = match.group(5)
+
+    def _select_join_multiple(self, sql):
+        """Handle multiple JOIN queries"""
+        import re
         
-        table1 = self.tables.get(table1_name)
-        table2 = self.tables.get(table2_name)
+        # Parse SELECT and FROM
+        select_match = re.match(r"SELECT\s+(.*?)\s+FROM\s+(\w+)", sql, re.IGNORECASE | re.DOTALL)
+        if not select_match:
+            raise ValueError("Invalid SELECT syntax")
         
-        if not table1 or not table2:
-            raise ValueError("Table does not exist")
+        columns_str = select_match.group(1).strip()
+        base_table_name = select_match.group(2)
         
-        # Parse join columns
-        col1 = join_col1.split('.')[-1]
-        col2 = join_col2.split('.')[-1]
+        # Find all JOINs
+        join_pattern = r"JOIN\s+(\w+)\s+ON\s+([\w.]+)\s*=\s*([\w.]+)"
+        joins = re.findall(join_pattern, sql, re.IGNORECASE)
         
-        # Nested loop join
+        print(f"[DEBUG] Base table: {base_table_name}")
+        print(f"[DEBUG] Joins found: {joins}")
+        print(f"[DEBUG] Columns: {columns_str}")
+        
+        # Get base table
+        base_table = self.tables.get(base_table_name)
+        if not base_table:
+            raise ValueError(f"Table {base_table_name} does not exist")
+        
+        # Start with base table rows
         result = []
-        for row1 in table1.rows:
-            for row2 in table2.rows:
-                if row1.get(col1) == row2.get(col2):
-                    joined_row = {}
-                    for k, v in row1.items():
-                        joined_row[f"{table1_name}.{k}"] = v
-                    for k, v in row2.items():
-                        joined_row[f"{table2_name}.{k}"] = v
-                    result.append(joined_row)
+        for row in base_table.rows:
+            result.append({k: v for k, v in row.items()})
         
-        # Select columns
-        if columns == '*':
-            select_cols = list(result[0].keys()) if result else []
+        print(f"[DEBUG] Starting with {len(result)} rows from {base_table_name}")
+        
+        # Apply each JOIN
+        for join_table_name, col1_full, col2_full in joins:
+            join_table = self.tables.get(join_table_name)
+            if not join_table:
+                raise ValueError(f"Table {join_table_name} does not exist")
+            
+            col1 = col1_full.split('.')[-1]
+            col2 = col2_full.split('.')[-1]
+            
+            print(f"[DEBUG] Joining {join_table_name} on {col1} = {col2}")
+            
+            new_result = []
+            for row in result:
+                for join_row in join_table.rows:
+                    if row.get(col1) == join_row.get(col2):
+                        merged = row.copy()
+                        # Add all columns from join table
+                        for k, v in join_row.items():
+                            merged[k] = v
+                        new_result.append(merged)
+            
+            result = new_result
+            print(f"[DEBUG] After join: {len(result)} rows")
+        
+        if not result:
+            print("[DEBUG] No rows after joins!")
+            return {'success': True, 'rows': [], 'columns': []}
+        
+        # Parse column selection
+        if columns_str == '*':
+            # Return all columns
+            final_result = result
+            columns_list = list(result[0].keys()) if result else []
         else:
-            select_cols = [col.strip() for col in columns.split(',')]
-            result = [{col: row.get(col) for col in select_cols} for row in result]
+            # Parse specific columns (handle table.column format)
+            columns_list = []
+            select_cols = [c.strip() for c in columns_str.split(',')]
+            
+            final_result = []
+            for row in result:
+                new_row = {}
+                for col_spec in select_cols:
+                    # Handle both "table.column" and "column" formats
+                    if '.' in col_spec:
+                        col_name = col_spec.split('.')[-1]
+                    else:
+                        col_name = col_spec
+                    
+                    new_row[col_name] = row.get(col_name)
+                    if col_name not in columns_list:
+                        columns_list.append(col_name)
+                
+                final_result.append(new_row)
         
-        return {'success': True, 'rows': result, 'columns': select_cols}
-    
+        print(f"[DEBUG] Final result: {len(final_result)} rows")
+        print(f"[DEBUG] Columns: {columns_list}")
+        print(f"[DEBUG] Sample row: {final_result[0] if final_result else 'none'}")
+        
+        return {'success': True, 'rows': final_result, 'columns': columns_list}
     def _update(self, sql):
         """UPDATE users SET name = 'Jane' WHERE id = 1"""
         import re

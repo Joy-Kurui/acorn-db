@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-01-17T22:44:56.826397",
+  "timestamp": "2026-01-19T16:03:39.321148",
   "tables": {
     "customers": {
       "columns": [
@@ -233,13 +233,35 @@
           "payment_method": "credit_card",
           "status": "pending",
           "created_at": "2025-01-15 09:20:00"
+        },
+        {
+          "id": 4,
+          "transaction_id": "TXN_1768826525414",
+          "customer_id": 2,
+          "merchant_id": 2,
+          "amount": 45,
+          "currency": "USD",
+          "payment_method": "debit_card",
+          "status": "completed",
+          "created_at": "2026-01-19 12:42:05"
+        },
+        {
+          "id": 5,
+          "transaction_id": "TXN_1768827814262",
+          "customer_id": 3,
+          "merchant_id": 3,
+          "amount": 70,
+          "currency": "USD",
+          "payment_method": "bank_transfer",
+          "status": "completed",
+          "created_at": "2026-01-19 13:03:34"
         }
       ],
       "primary_key": "id",
       "unique_columns": [
         "transaction_id"
       ],
-      "next_id": 4
+      "next_id": 6
     }
   }
 }
